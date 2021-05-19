@@ -19,7 +19,7 @@ description: |-
 > but you will not be able to perform some of the examples in our docs without it.
 > To install `kubectl` see the upstream [kubectl installation docs](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 
-You can either install kind with `GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0` or clone this repo 
+You can either install kind with `GO111MODULE="on" go get sigs.k8s.io/kind@{{< stableVersion >}}` or clone this repo 
 and run `make build` from the repository.
 
 Please use the latest Go when installing KIND from source, ideally go 1.14 or greater.
@@ -42,7 +42,7 @@ into your `$PATH`.
 On Linux:
 
 {{< codeFromInline lang="bash" >}}
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.9.0/kind-linux-amd64
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/{{< stableVersion >}}/kind-linux-amd64
 chmod +x ./kind
 mv ./kind /some-dir-in-your-PATH/kind
 {{< /codeFromInline >}}
@@ -54,13 +54,13 @@ brew install kind
 {{< /codeFromInline >}}
 or
 {{< codeFromInline lang="bash" >}}
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.9.0/kind-darwin-amd64
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/{{< stableVersion >}}/kind-darwin-amd64
 {{< /codeFromInline >}}
 
 On Windows:
 
 {{< codeFromInline lang="powershell" >}}
-curl.exe -Lo kind-windows-amd64.exe https://kind.sigs.k8s.io/dl/v0.9.0/kind-windows-amd64
+curl.exe -Lo kind-windows-amd64.exe https://kind.sigs.k8s.io/dl/{{< stableVersion >}}/kind-windows-amd64
 Move-Item .\kind-windows-amd64.exe c:\some-dir-in-your-PATH\kind.exe
 {{< /codeFromInline >}}
 
@@ -151,11 +151,12 @@ context name `kind` and delete that cluster.
 ## Loading an Image Into Your Cluster
 
 Docker images can be loaded into your cluster nodes with:
-`kind load docker-image my-custom-image`
 
-> **NOTE**: If using a named cluster you will need to specify the name of the 
-cluster you wish to load the image into:
-`kind load docker-image my-custom-image --name kind-2`
+`kind load docker-image my-custom-image-0 my-custom-image-1`
+
+> **Note**: If using a named cluster you will need to specify the name of the 
+> cluster you wish to load the images into:
+> `kind load docker-image my-custom-image-0 my-custom-image-1 --name kind-2`
 
 Additionally, image archives can be loaded with:
 `kind load image-archive /my-image-archive.tar`
@@ -201,20 +202,13 @@ The `node-image` in turn is built off the [`base-image`][base image], which
 installs all the dependencies needed for Docker and Kubernetes to run in a
 container.
 
-Currently, kind supports two different ways to build a `node-image`
+Currently, kind supports one default way to build a `node-image`
 if you have the [Kubernetes][kubernetes] source in your host machine
-(`$GOPATH/src/k8s.io/kubernetes`), by using `docker` or `bazel`.
-To specify the build type use the flag `--type`.
-Note however that using `--type=bazel` on Windows or MacOS will not work
-currently due to Kubelet using [CGO] which requires GCC/glibc for linux.
-A workaround may be enabled in the future.
+(`$GOPATH/src/k8s.io/kubernetes`), by using `docker`.
 
-kind will default to using the build type `docker` if none is specified.
-
-```
-kind build node-image --type bazel
-```
-
+> **NOTE**: Building Kubernetes node-images requires everything building upstream
+> Kubernetes requires, we wrap the upstream build. This includes Docker with buildx.
+> See: https://git.k8s.io/community/contributors/devel/development.md#building-kubernetes-with-docker
 
 ### Settings for Docker Desktop
 
@@ -304,6 +298,11 @@ This can be useful if using `NodePort` services or daemonsets exposing host port
 
 Note: binding the `listenAddress` to `127.0.0.1` may affect your ability to access the service.
 
+You may want to see the [Ingress Guide] and [LoadBalancer Guide].
+
+[Ingress Guide]: /docs/user/ingress
+[LoadBalancer Guide]: /docs/user/loadbalancer
+
 #### Setting Kubernetes version
 You can also set a specific Kubernetes version by setting the `node`'s container image. You can find available image tags on the [releases page](https://github.com/kubernetes-sigs/kind/releases). Please use the `sha256` shasum for your desired kubernetes version, as seen in this example:
 
@@ -327,42 +326,6 @@ apiVersion: kind.x-k8s.io/v1alpha4
 featureGates:
   FeatureGateName: true
 {{< /codeFromInline >}}
-
-#### IPv6 clusters
-You can run IPv6 single-stack clusters using `kind`, if the host that runs the docker containers support IPv6.
-Most operating systems / distros have IPv6 enabled by default, but you can check on Linux with the following command:
-
-```sh
-sudo sysctl net.ipv6.conf.all.disable_ipv6
-```
-
-You should see:
-
-```sh
-net.ipv6.conf.all.disable_ipv6 = 0
-```
-
-If you are using Docker on Windows or Mac, you will need to use an IPv4 port
-forward for the API Server from the host because IPv6 port forwards don't work
-on these platforms, you can do this with the following config:
-
-```yaml
-# an ipv6 cluster
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-networking:
-  ipFamily: ipv6
-  apiServerAddress: 127.0.0.1
-```
-
-On Linux all you need is:
-```yaml
-# an ipv6 cluster
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-networking:
-  ipFamily: ipv6
-```
 
 ### Configure kind to use a proxy
 If you are running kind in an environment that requires a proxy, you may need to configure kind to use it.
@@ -416,7 +379,7 @@ kind, the Kubernetes cluster itself, etc.
 [releases]: https://github.com/kubernetes-sigs/kind/releases
 [node image]: /docs/design/node-image
 [base image]: /docs/design/base-image
-[kind-example-config]: https://raw.githubusercontent.com/kubernetes-sigs/kind/master/site/content/docs/user/kind-example-config.yaml
+[kind-example-config]: https://raw.githubusercontent.com/kubernetes-sigs/kind/main/site/content/docs/user/kind-example-config.yaml
 [kubernetes]: https://github.com/kubernetes/kubernetes
 [kindest/node]: https://hub.docker.com/r/kindest/node/
 [kubectl]: https://kubernetes.io/docs/reference/kubectl/overview/

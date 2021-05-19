@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   podman:
     name: Podman
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -29,9 +29,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify
-        run: make verify
-
       - name: Install kind
         run: sudo make install INSTALL_DIR=/usr/local/bin
 
@@ -46,19 +43,13 @@ jobs:
           sudo sysctl -w net.ipv6.conf.all.forwarding=1
           sudo sysctl -w net.ipv4.ip_forward=1
 
-      - name: Install podman
+      - name: Setup podman
         run: |
-          . /etc/os-release
-          echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/${PODMAN_VERSION}/xUbuntu_${VERSION_ID}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
-          curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/${PODMAN_VERSION}/xUbuntu_${VERSION_ID}/Release.key | sudo apt-key add -
-          sudo apt-get update -qq
-          sudo apt-get -qq -y install podman
-          # Install network
-          sudo mkdir -p /etc/cni/net.d
-          curl -qsSL https://raw.githubusercontent.com/containers/libpod/master/cni/87-podman-bridge.conflist | sudo tee /etc/cni/net.d/87-podman-bridge.conf
-          curl -qsSL https://github.com/containernetworking/plugins/releases/download/v0.8.6/cni-plugins-linux-amd64-v0.8.6.tgz --output /tmp/cni.tgz
-          sudo mkdir -p /usr/libexec/cni
-          sudo tar -C /usr/libexec/cni -xvzf /tmp/cni.tgz
+          podman version
+          # podman requires dnsmasq for custom networks
+          # https://github.com/actions/virtual-environments/issues/2708
+          sudo apt-get update
+          sudo apt-get -y install dnsmasq
 
       - name: Create single node cluster
         if: ${{ matrix.deployment == 'singleNode' }}
@@ -68,6 +59,15 @@ jobs:
           apiVersion: kind.x-k8s.io/v1alpha4
           networking:
             ipFamily: ${IP_FAMILY}
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 80
+              hostPort: 80
+              listenAddress: 0.0.0.0
+            - containerPort: 443
+              hostPort: 443
+              listenAddress: 0.0.0.0
           EOF
 
       - name: Create multi node cluster
